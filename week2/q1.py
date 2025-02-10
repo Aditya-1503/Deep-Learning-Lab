@@ -16,3 +16,4 @@ z.backward()  # This automatically computes the gradients
 
 # Print the gradient dz/da
 print(f"The gradient dz/da is: {a.grad.item()}")
+print(f"The gradient dz/db is: {b.grad.item()}")
