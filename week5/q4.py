@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 class CNNClassifier(nn.Module):
     def __init__(self, conv1_out_channels=32, conv2_out_channels=64, fc1_out_features=20):
         super(CNNClassifier, self).__init__()
-        # Modified: Removed third convolutional layer
         self.net = nn.Sequential(
             nn.Conv2d(1, conv1_out_channels, kernel_size=3),
             nn.ReLU(),
@@ -19,7 +18,7 @@ class CNNClassifier(nn.Module):
             nn.MaxPool2d((2, 2), stride=2)
         )
         self.classification_head = nn.Sequential(
-            nn.Linear(conv2_out_channels*5*5, fc1_out_features, bias=True),  # Adjusted the size
+            nn.Linear(conv2_out_channels*5*5, fc1_out_features, bias=True),
             nn.ReLU(),
             nn.Linear(fc1_out_features, 10, bias=True)
         )
@@ -30,27 +29,32 @@ class CNNClassifier(nn.Module):
         return self.classification_head(features)
 
 
+# Define transformation for dataset
 transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize((0.5,), (0.5,))
 ])
 
+# Load MNIST dataset
 train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
 test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
 
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
+# Check for CUDA
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-
+# Training function
 def train(model, train_loader, criterion, optimizer, epochs=5):
     model.train()
     for epoch in range(epochs):
         running_loss = 0.0
         for images, labels in train_loader:
+            images, labels = images.to(device), labels.to(device)  # Move data to GPU
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -60,13 +64,14 @@ def train(model, train_loader, criterion, optimizer, epochs=5):
 
         print(f"Epoch [{epoch + 1}/{epochs}], Loss: {running_loss / len(train_loader)}")
 
-
+# Evaluation function
 def evaluate(model, test_loader):
     model.eval()
     correct = 0
     total = 0
     with torch.no_grad():
         for images, labels in test_loader:
+            images, labels = images.to(device), labels.to(device)  # Move data to GPU
             outputs = model(images)
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
@@ -74,7 +79,7 @@ def evaluate(model, test_loader):
     accuracy = 100 * correct / total
     return accuracy
 
-
+# Experiment function with multiple configurations
 def experiment_with_parameters():
     results = []
     filter_configs = [
@@ -84,7 +89,7 @@ def experiment_with_parameters():
     ]
 
     for conv1_out_channels, conv2_out_channels, fc1_out_features in filter_configs:
-        model = CNNClassifier(conv1_out_channels, conv2_out_channels, fc1_out_features)
+        model = CNNClassifier(conv1_out_channels, conv2_out_channels, fc1_out_features).to(device)  # Move model to GPU
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=0.001)
 
@@ -105,14 +110,18 @@ def experiment_with_parameters():
     return results
 
 
+# Run the experiment
 results = experiment_with_parameters()
 
+# Extract accuracies and parameter counts for plotting
 accuracies = [result['accuracy'] for result in results]
 param_counts = [result['num_params'] for result in results]
 
+# Calculate the percentage drop in parameters
 initial_params = param_counts[0]
 param_drops = [100 * (initial_params - p) / initial_params for p in param_counts]
 
+# Plotting the results
 plt.figure(figsize=(10, 6))
 plt.plot(param_drops, accuracies, marker='o', linestyle='-', color='b')
 plt.title('Percentage Drop in Parameters vs Accuracy (After Removing a Layer)')

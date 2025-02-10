@@ -28,7 +28,6 @@ class CNNClassifier(nn.Module):
         )
 
     def forward(self, x):
-
         features = self.net(x)
         features = features.view(features.size(0), -1)
         return self.classification_head(features)
@@ -45,18 +44,25 @@ train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
 model = CNNClassifier()
+
+# Check if CUDA is available
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Move model to the GPU if available
+model = model.to(device)
+
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-
 def train(model, train_loader, criterion, optimizer, epochs=5):
     model.train()
     for epoch in range(epochs):
         running_loss = 0.0
         for images, labels in train_loader:
+            images, labels = images.to(device), labels.to(device)  # Move data to GPU
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs, labels)
@@ -73,6 +79,7 @@ def evaluate(model, test_loader):
 
     with torch.no_grad():
         for images, labels in test_loader:
+            images, labels = images.to(device), labels.to(device)  # Move data to GPU
             outputs = model(images)
             _, preds = torch.max(outputs, 1)
             all_preds.append(preds)
@@ -81,7 +88,7 @@ def evaluate(model, test_loader):
     all_preds = torch.cat(all_preds)
     all_labels = torch.cat(all_labels)
 
-    cm = confusion_matrix(all_labels.numpy(), all_preds.numpy())
+    cm = confusion_matrix(all_labels.cpu().numpy(), all_preds.cpu().numpy())  # Move to CPU for confusion matrix calculation
 
     return cm
 
@@ -93,11 +100,15 @@ def plot_confusion_matrix(cm, classes):
     plt.title('Confusion Matrix')
     plt.show()
 
+# Train the model
 train(model, train_loader, criterion, optimizer, epochs=3)
 
+# Evaluate the model
 conf_matrix = evaluate(model, test_loader)
 
+# Plot confusion matrix
 plot_confusion_matrix(conf_matrix, classes=[str(i) for i in range(10)])
 
+# Count the number of learnable parameters in the model
 num_params = count_parameters(model)
 print(f"\nNumber of learnable parameters in the model: {num_params}")
