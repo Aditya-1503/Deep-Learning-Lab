@@ -137,4 +137,8 @@ optimizer = optim.Adam(model.classifier.parameters(), lr=0.001)
 
 # Start training with checkpointing
 train_model_with_checkpoint(model, train_loader, val_loader, criterion, optimizer, num_epochs=5, checkpoint_interval=1,
+<<<<<<< HEAD
                             resume_from_checkpoint=False)
+=======
+                            resume_from_checkpoint=False)
+>>>>>>> d4971aaade144aa85403cfe737e64d53113a8668
